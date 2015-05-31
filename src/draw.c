@@ -3,6 +3,20 @@
 
 #include <string.h>
 
+#define TOP_LEFT_FRAME1		0x20184E60
+#define TOP_LEFT_FRAME2		0x201CB370
+#define TOP_RIGHT_FRAME1	0x20282160
+#define TOP_RIGHT_FRAME2	0x202C8670
+#define SUB_FRAME1			0x202118E0
+#define SUB_FRAME2			0x20249CF0
+
+draw_s draw;
+
+void draw_init(const draw_s* _draw)
+{
+	memcpy(&draw, _draw, sizeof(draw));
+}
+
 void _memset_rgb3(void* ptr, const u32 rgb, size_t pixelSize)
 {
 	u8 r = rgb & 0xFF;
@@ -40,17 +54,14 @@ void _memset_aligned24(void* ptr, const u32 rgb, size_t blockSize)
 void draw_clear_top(u32 rgb)
 {
 	u32 size = TOP_WIDTH * TOP_HEIGHT * 3 / (6 * 4);
-	_memset_aligned24((void*)TOP_LEFT_FRAME1, rgb, size);
-	_memset_aligned24((void*)TOP_LEFT_FRAME2, rgb, size);
-	_memset_aligned24((void*)TOP_RIGHT_FRAME1, rgb, size);
-	_memset_aligned24((void*)TOP_RIGHT_FRAME2, rgb, size);
+	_memset_aligned24(draw.top_left, rgb, size);
+	_memset_aligned24(draw.top_right, rgb, size);
 }
 
 void draw_clear_sub(u32 rgb)
 {
 	u32 size = SUB_WIDTH * SUB_HEIGHT * 3 / (6 * 4);
-	_memset_aligned24((void*)SUB_FRAME1, rgb, size);
-	_memset_aligned24((void*)SUB_FRAME2, rgb, size);
+	_memset_aligned24(draw.sub, rgb, size);
 }
 
 #define SET_PIXEL(buffer, x, y, rgb)\
@@ -64,15 +75,13 @@ void draw_clear_sub(u32 rgb)
 inline
 void draw_pixel_topleft(u16 x, u16 y, u32 rgb)
 {
-	SET_PIXEL(TOP_LEFT_FRAME1, x, y, rgb);
-	SET_PIXEL(TOP_LEFT_FRAME2, x, y, rgb);
+	SET_PIXEL(draw.top_left, x, y, rgb);
 }
 
 inline
 void draw_pixel_topright(u16 x, u16 y, u32 rgb)
 {
-	SET_PIXEL(TOP_RIGHT_FRAME1, x, y, rgb);
-	SET_PIXEL(TOP_RIGHT_FRAME2, x, y, rgb);
+	SET_PIXEL(draw.top_right, x, y, rgb);
 }
 
 void draw_pixel_top(u16 x, u16 y, u32 rgb)
@@ -83,8 +92,7 @@ void draw_pixel_top(u16 x, u16 y, u32 rgb)
 
 void draw_pixel_sub(u16 x, u16 y, u32 rgb)
 {
-	SET_PIXEL(SUB_FRAME1, x, y, rgb);
-	SET_PIXEL(SUB_FRAME2, x, y, rgb);
+	SET_PIXEL(draw.sub, x, y, rgb);
 }
 
 void draw_clear_screen(u32 screen, u32 rgb)
@@ -174,38 +182,62 @@ void memcpy32(void* dst, const void* src, size_t size)
 	}
 }
 
-void draw_shift_up(u32 screen)
+void _draw_shift_up(u8* fb, u32 width)
 {
 	// Buffer is bottom to top, left to right
 	u32 x, y;
-	for(x = 0; x < SUB_WIDTH; x++)
+	for(x = 0; x < width; x++)
 	{
-		for(y = HEIGHT * 3 - 24; y != 0; y-=24) // y dim here is bytes
+		for(y = HEIGHT * 3 - 24; y != 0; y -= 24) // y dim here is bytes
 		{
-			void* col = (u8*)SUB_FRAME1 + x * HEIGHT * 3 + y;
-			memcpy32(col, col - 6 * 4, 6);
-			
-			col = (u8*)SUB_FRAME2 + x * HEIGHT * 3 + y;
+			void* col = (u8*)fb + x * HEIGHT * 3 + y;
 			memcpy32(col, col - 6 * 4, 6);
 		}
 	}
 }
 
-void draw_shift_down(u32 screen)
+void draw_shift_up(u32 screen)
+{
+	switch(screen)
+	{
+	case SCREEN_TOP:
+	default:
+		_draw_shift_up(draw.top_left, TOP_WIDTH);
+		_draw_shift_up(draw.top_right, TOP_WIDTH);
+		break;
+	case SCREEN_SUB:
+		_draw_shift_up(draw.sub, SUB_WIDTH);
+		break;
+	}
+}
+
+static void _draw_shift_down(u8* fb, u32 width)
 {
 	// Buffer is bottom to top, left to right
 	// Size in ints - 6 ints
 	const u32 copySize = HEIGHT / 4 * 3 - 6;
-	
+
 	u32 x;
-	for(x = 0; x < SUB_WIDTH; x++)
+	for(x = 0; x < width; x++)
 	{
 		// Copy from lower 8 pixels(6 ints)
-		void* col = (u8*)SUB_FRAME1 + x * HEIGHT * 3;
+		void* col = (u8*)draw.sub + x * HEIGHT * 3;
 		memcpy32(col, col + 6 * 4, copySize);
-		
-		col = (u8*)SUB_FRAME2 + x * HEIGHT * 3;
-		memcpy32(col, col + 6 * 4, copySize);
+	}
+}
+
+void draw_shift_down(u32 screen)
+{
+	switch(screen)
+	{
+	case SCREEN_TOP:
+	default:
+		_draw_shift_down(draw.top_left, TOP_WIDTH);
+		_draw_shift_down(draw.top_right, TOP_WIDTH);
+		break;
+	case SCREEN_SUB:
+		_draw_shift_down(draw.sub, SUB_WIDTH);
+		break;
 	}
 }
 
@@ -242,14 +274,11 @@ void draw_rect(u32 screen, u16 x, u16 y, u16 width, u16 height, u32 rgb)
 	{
 	case SCREEN_TOP:
 	default:
-		_draw_rect((u8*)TOP_LEFT_FRAME1, x, y, width, height, rgb);
-		_draw_rect((u8*)TOP_LEFT_FRAME2, x, y, width, height, rgb);
-		_draw_rect((u8*)TOP_RIGHT_FRAME1, x, y, width, height, rgb);
-		_draw_rect((u8*)TOP_RIGHT_FRAME2, x, y, width, height, rgb);
+		_draw_rect((u8*)draw.top_left, x, y, width, height, rgb);
+		_draw_rect((u8*)draw.top_right, x, y, width, height, rgb);
 		break;
 	case SCREEN_SUB:
-		_draw_rect((u8*)SUB_FRAME1, x, y, width, height, rgb);
-		_draw_rect((u8*)SUB_FRAME2, x, y, width, height, rgb);
+		_draw_rect((u8*)draw.sub, x, y, width, height, rgb);
 		break;
 	}
 }
