@@ -16,6 +16,8 @@
 #define HID_DOWN	((u32)0x080)
 #define HID_RT		((u32)0x100)
 #define HID_LT		((u32)0x200)
+#define HID_X		((u32)0x400)
+#define HID_Y		((u32)0x800)
 
 u32 input_wait();
 
