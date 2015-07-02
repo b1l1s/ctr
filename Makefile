@@ -28,7 +28,7 @@ OBJS+=$(patsubst $(SRC_DIR)/%.S, $(OBJ_DIR)/%.o, $(wildcard $(SRC_DIR)/*.S))
 OUT_DIR:=$(LIB_DIR) $(OBJ_DIR)
 LIB:=$(LIB_DIR)/lib$(LIBNAME).a
 
-.PHONY: clean
+.PHONY: clean all install
 
 all: $(LIB)
 
@@ -52,6 +52,10 @@ dirs: ${OUT_DIR}
 
 ${OUT_DIR}:
 	mkdir -p ${OUT_DIR}
+
+install: all
+	cp -r include/* $(DEVKITARM)/arm-none-eabi/include
+	cp $(LIB) $(DEVKITARM)/arm-none-eabi/lib
 
 clean:
 	rm -rf lib/* obj/*
