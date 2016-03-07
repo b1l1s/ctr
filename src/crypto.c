@@ -50,16 +50,42 @@ asm\
 
 void aes_setkey(u8 keyslot, const void* key, u32 keyType, u32 mode)
 {
-	if(keyslot <= 0x03) return; // Ignore TWL keys for now
+	if(keyslot > 0x3F)
+		return;
 
 	u32* key32 = (u32*)key;
 	*REG_AESCNT = (*REG_AESCNT & ~(AES_CNT_INPUT_ENDIAN | AES_CNT_INPUT_ORDER)) | mode;
-	*REG_AESKEYCNT = (*REG_AESKEYCNT >> 6 << 6) | keyslot | AES_KEYCNT_WRITE;
 
-	REG_AESKEYFIFO[keyType] = key32[0];
-	REG_AESKEYFIFO[keyType] = key32[1];
-	REG_AESKEYFIFO[keyType] = key32[2];
-	REG_AESKEYFIFO[keyType] = key32[3];
+	if(keyslot <= 0x03)
+	{
+		// TWL keys
+		vu32* base = REG_AESTWLKEY;
+		u32 offset = keyType * 4 + keyslot * 12;
+		if(mode & AES_INPUT_NORMAL)
+		{
+			base[offset + 0] = key32[3];
+			base[offset + 1] = key32[2];
+			base[offset + 2] = key32[1];
+			base[offset + 3] = key32[0];
+		}
+		else
+		{
+			base[offset + 0] = key32[0];
+			base[offset + 1] = key32[1];
+			base[offset + 2] = key32[2];
+			base[offset + 3] = key32[3];
+		}
+	}
+	else
+	{
+		// CTR keys
+		*REG_AESKEYCNT = (*REG_AESKEYCNT >> 6 << 6) | keyslot | AES_KEYCNT_WRITE;
+
+		REG_AESKEYFIFO[keyType] = key32[0];
+		REG_AESKEYFIFO[keyType] = key32[1];
+		REG_AESKEYFIFO[keyType] = key32[2];
+		REG_AESKEYFIFO[keyType] = key32[3];
+	}
 }
 
 void aes_use_keyslot(u8 keyslot)

@@ -47,7 +47,7 @@ typedef struct system_info
 	u8 reserved[0x30];
 } system_info; // 0x40
 
-typedef struct
+typedef struct system_control_info
 {
 	u8 appTitle[8];
 	char reserved1[5];
@@ -63,10 +63,45 @@ typedef struct
 	system_info systemInfo;
 } system_control_info; // 0x200
 
+typedef struct arm11_local_system_cap
+{
+	u8 programID[8];
+	u32 core_version;
+	u8 flag1;
+	u8 flag2;
+	u8 flag0;
+	u8 priority;
+	u32 limits[8];
+	u32 storage_info[8];
+	u8 service_access_control[0x20 * 8];
+	u8 ex_service_access_control[0x02 * 8];
+	u8 pad0[0xF];
+	u8 resource_limit_cat; // Resource Limit Category. (0 = APPLICATION, 1 = SYS_APPLET, 2 = LIB_APPLET, 3 = OTHER(sysmodules running under the BASE memregion))
+} arm11_local_system_cap;
+
+typedef struct arm11_kernel_cap
+{
+	uint32_t descriptors[0x28];
+	uint32_t reserved[4];
+} arm11_kernel_cap;
+
+typedef struct arm9_access_control
+{
+	uint8_t descriptors[0xF];
+	uint8_t version;
+} arm9_access_control;
+
+typedef struct access_control_info
+{
+	arm11_local_system_cap alsc;
+	arm11_kernel_cap akc;
+	arm9_access_control aac;
+} access_control_info;
+
 typedef struct ncch_ex_h
 {
 	system_control_info sci;
-	u8 aci[0x200];
+	access_control_info aci;
 	u8 accessDescSig[0x100];
 	u8 ncchPubKey[0x100];
 	u8 aciLim[0x200];

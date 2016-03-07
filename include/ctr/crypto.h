@@ -12,6 +12,8 @@
 #define REG_AESKEYCNT			((volatile u8 *)0x10009011)
 #define REG_AESCTR				((volatile u32*)0x10009020)
 
+#define REG_AESTWLKEY			((volatile u32*)0x10009040)
+
 #define REG_AESKEYFIFO			((volatile u32*)0x10009100)
 #define REG_AESKEYXFIFO			((volatile u32*)0x10009104)
 #define REG_AESKEYYFIFO			((volatile u32*)0x10009108)
